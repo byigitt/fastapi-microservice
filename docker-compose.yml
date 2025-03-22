@@ -1,0 +1,67 @@
+version: '3'
+
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - microservice-network
+
+  kafka:
+    image: wurstmeister/kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: localhost
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CREATE_TOPICS: "product_events:1:1,order_events:1:1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - microservice-network
+    depends_on:
+      - zookeeper
+
+  product-service:
+    build: ./services/product_service
+    ports:
+      - "8000:8000"
+    networks:
+      - microservice-network
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    volumes:
+      - ./infrastructure:/app/infrastructure
+
+  order-service:
+    build: ./services/order_service
+    ports:
+      - "8001:8000"
+    networks:
+      - microservice-network
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    volumes:
+      - ./infrastructure:/app/infrastructure
+
+  database-service:
+    build: ./services/database_service
+    ports:
+      - "8002:8000"
+    networks:
+      - microservice-network
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    volumes:
+      - ./infrastructure:/app/infrastructure
+
+networks:
+  microservice-network:
+    driver: bridge 
